@@ -1,0 +1,179 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  imageUrl  String?
+  email     String   @unique
+  password        String?
+  role      Role     @default(USER)
+  customers Customer[] @relation("UserCustomers")
+  deliveries Delivery[] @relation("UserDeliveries")
+  invoices  Invoice[] @relation("UserInvoices")
+  payments  Payment[] @relation("UserPayments")
+
+  resetPasswordToken  String?
+  resetPasswordExpire DateTime?
+  ftlToken            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  address           String
+  phoneNumber       String
+  email             String   @unique
+  pricingPlan       String   // Option for custom pricing plans
+  balance           Float    @default(0)
+  deliverySchedule  String   // Weekly, Bi-weekly, Custom schedule
+  deliveryDay       String?  // day of week e.g. monday
+  nextDeliveryDate  DateTime?
+  allowEarlyDelivery Boolean @default(true)
+  bottleBalance     Int      @default(0)
+  userId            String?  @db.ObjectId
+  user              User?    @relation("UserCustomers", fields: [userId], references: [id])
+  deliveries        Delivery[]
+  invoices          Invoice[]
+  payments          Payment[]
+  emptyBottles      Int      @default(0)  // Tracks empty bottles returned by the customer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Delivery {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  date           DateTime
+  scheduledDate  DateTime?
+  actualDate     DateTime?
+  status         DeliveryStatus @default(PENDING)
+  ticketNumber   String?
+  code           String?
+  rate           Float?
+  paymentType    String? // e.g., Cash / Card / Online
+  previousMonthAmount Float? @default(0)
+  currentMonthPaid    Float? @default(0)
+  previousOutstanding Float? @default(0)
+  currentOutstanding  Float? @default(0)
+  previousBalance     Float    @default(0)
+  currentBalance      Float    @default(0)
+  previousBottleBalance Int    @default(0)
+  currentBottleBalance  Int    @default(0)
+  amountDue           Float    @default(0)
+  amountReceived      Float    @default(0)
+  notes          String?
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  deliveryPerson String?  @db.ObjectId // Reference to User (delivery staff)
+  deliveryUser   User?    @relation("UserDeliveries", fields: [deliveryPerson], references: [id])
+  deliveryProducts DeliveryProduct[]
+  entries        DeliveryEntry[]
+  invoice        Invoice? @relation("DeliveryInvoice")
+  emptyBottles   Int      @default(0) // Number of empty bottles returned during this delivery
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   // Name of the product (e.g., Water Bottle)
+  description String?  // Optional description
+  quantity    Int      @default(0) // Quantity available in stock
+  price       Float    // Price of one unit of the product
+  deliveryProducts DeliveryProduct[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Invoice {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount         Float
+  date           DateTime @default(now())
+  status         InvoiceStatus @default(UNPAID)
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  deliveryId     String?  @unique
+  delivery       Delivery? @relation("DeliveryInvoice", fields: [deliveryId], references: [id])
+  createdById    String?   @db.ObjectId
+  createdBy      User?     @relation("UserInvoices", fields: [createdById], references: [id])
+  payments       Payment[] @relation("InvoicePayments")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount         Float
+  date           DateTime @default(now())
+  method         PaymentMethod
+  customerId     String
+  customer       Customer @relation(fields: [customerId], references: [id])
+  invoiceId      String?
+  invoice        Invoice? @relation("InvoicePayments", fields: [invoiceId], references: [id])
+  createdById    String?  @db.ObjectId
+  createdBy      User?    @relation("UserPayments", fields: [createdById], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeliveryProduct {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  deliveryId  String   @db.ObjectId
+  productId   String   @db.ObjectId
+  delivery    Delivery @relation(fields: [deliveryId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model DeliveryEntry {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  deliveryId      String   @db.ObjectId
+  delivery        Delivery @relation(fields: [deliveryId], references: [id])
+  entryDate       DateTime
+  deliveredBottles Int     @default(0)
+  dropBottle      Int      @default(0)
+  emptyBottle     Int      @default(0)
+  bottleBalance   Int      @default(0)
+  amountDue       Float    @default(0)
+  amountReceived  Float    @default(0)
+  balanceAmount   Float    @default(0)
+  avBottles       Int?
+  vanAmount       Float?
+  createdAt       DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  USER
+  DELIVERY_PERSON
+}
+
+enum DeliveryStatus {
+  PENDING
+  SCHEDULED
+  DELIVERED
+  SKIPPED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PAID
+  UNPAID
+  PENDING
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+  CARD
+}
