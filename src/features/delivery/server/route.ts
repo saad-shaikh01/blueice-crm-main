@@ -17,11 +17,14 @@ const querySchema = z.object({
   date: z.string().trim().optional(),
   status: z.enum(['PENDING', 'SCHEDULED', 'DELIVERED', 'SKIPPED', 'CANCELLED']).optional(),
   range: z.enum(['today', 'tomorrow', 'week']).optional(),
+  assignedToMe: z.string().optional(),
 });
 
 const app = new Hono()
   .get('/', sessionMiddleware, zValidator('query', querySchema), async (ctx) => {
-    const { search, date, status, range } = ctx.req.valid('query');
+    const { search, date, status, range, assignedToMe } = ctx.req.valid('query');
+    const userId = ctx.get('userId');
+    const user = ctx.get('user');
 
     const anchor = date ? new Date(date) : new Date();
     const resolvedRange = range ?? 'today';
@@ -62,6 +65,10 @@ const app = new Hono()
       filters.push({ status });
     } else {
       filters.push({ status: { in: ['PENDING', 'SCHEDULED'] } });
+    }
+
+    if (assignedToMe === 'true' || user.role === 'DELIVERY_PERSON') {
+      filters.push({ deliveryPerson: userId });
     }
 
     const deliveries = await db.delivery.findMany({
@@ -228,45 +235,123 @@ const app = new Hono()
   .post('/schedule', sessionMiddleware, zValidator('json', z.object({ date: z.string().optional() })), async (ctx) => {
     const { date } = ctx.req.valid('json');
     const targetDate = date ? new Date(date) : addDays(new Date(), 1);
-    const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
+    // Normalize targetDate to start of day to avoid time comparison issues
+    const normalizedTargetDate = startOfDay(targetDate);
+    const dayName = normalizedTargetDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+    // Find customers who either:
+    // 1. Have nextDeliveryDate <= target date (catch up on missed runs)
+    // 2. OR (if nextDeliveryDate is null) have deliveryDay matching today AND Weekly schedule (legacy/fallback)
     const customers = await db.customer.findMany({
-      where: { deliveryDay: dayName },
-    });
-
-    const deliveries = await Promise.all(
-      customers.map((customer) =>
-        db.delivery.create({
-          data: {
-            date: targetDate,
-            scheduledDate: targetDate,
-            status: 'SCHEDULED',
-            customerId: customer.id,
-            deliveryPerson: customer.userId ?? null,
-            rate: undefined,
-            entries: {
-              create: [
-                {
-                  entryDate: targetDate,
-                  deliveredBottles: 0,
-                  dropBottle: 0,
-                  emptyBottle: 0,
-                  bottleBalance: customer.bottleBalance ?? 0,
-                  amountDue: 0,
-                  amountReceived: 0,
-                  balanceAmount: customer.balance ?? 0,
-                  avBottles: 0,
-                  vanAmount: 0,
-                },
-              ],
+      where: {
+        OR: [
+          {
+            nextDeliveryDate: {
+              lte: normalizedTargetDate,
             },
           },
-          include: { customer: true, entries: true },
-        }),
-      ),
-    );
+          {
+            nextDeliveryDate: null,
+            deliveryDay: dayName,
+            deliverySchedule: 'Weekly',
+          },
+        ],
+      },
+    });
 
-    return ctx.json({ data: deliveries });
+    const results = [];
+
+    for (const customer of customers) {
+      let nextDate = customer.nextDeliveryDate ? new Date(customer.nextDeliveryDate) : normalizedTargetDate;
+      const schedule = customer.deliverySchedule.toLowerCase();
+
+      // Check if delivery already exists for this date to prevent duplicates
+      const existingDelivery = await db.delivery.findFirst({
+        where: {
+          customerId: customer.id,
+          scheduledDate: {
+            gte: normalizedTargetDate,
+            lt: addDays(normalizedTargetDate, 1),
+          },
+          status: {
+            not: 'CANCELLED'
+          }
+        }
+      });
+
+      if (existingDelivery) {
+         // Even if delivery exists, we must advance nextDeliveryDate so we don't get stuck
+         // But only if nextDeliveryDate is <= targetDate (meaning it's due or overdue)
+         if (nextDate <= normalizedTargetDate) {
+            // Calculate next date
+             if (schedule.includes('bi-weekly') || schedule.includes('biweekly')) {
+                nextDate = addDays(nextDate, 14);
+              } else if (schedule.includes('monthly')) {
+                nextDate = addDays(nextDate, 30);
+              } else {
+                nextDate = addDays(nextDate, 7);
+              }
+
+             await db.customer.update({
+                where: { id: customer.id },
+                data: { nextDeliveryDate: nextDate }
+              });
+         }
+        continue;
+      }
+
+      // Create the delivery
+      const delivery = await db.delivery.create({
+        data: {
+          date: normalizedTargetDate,
+          scheduledDate: normalizedTargetDate,
+          status: 'SCHEDULED',
+          customerId: customer.id,
+          deliveryPerson: customer.userId ?? null,
+          rate: undefined,
+          entries: {
+            create: [
+              {
+                entryDate: normalizedTargetDate,
+                deliveredBottles: 0,
+                dropBottle: 0,
+                emptyBottle: 0,
+                bottleBalance: customer.bottleBalance ?? 0,
+                amountDue: 0,
+                amountReceived: 0,
+                balanceAmount: customer.balance ?? 0,
+                avBottles: 0,
+                vanAmount: 0,
+              },
+            ],
+          },
+        },
+        include: { customer: true, entries: true },
+      });
+
+      // Calculate next delivery date based on schedule for the FUTURE
+      // We use the created delivery's date as the baseline if nextDeliveryDate was null
+      let baselineDate = customer.nextDeliveryDate ? new Date(customer.nextDeliveryDate) : normalizedTargetDate;
+
+      if (schedule.includes('bi-weekly') || schedule.includes('biweekly')) {
+        nextDate = addDays(baselineDate, 14);
+      } else if (schedule.includes('monthly')) {
+        nextDate = addDays(baselineDate, 30);
+      } else {
+        nextDate = addDays(baselineDate, 7);
+      }
+
+      // Update customer with new nextDeliveryDate
+      await db.customer.update({
+        where: { id: customer.id },
+        data: { nextDeliveryDate: nextDate }
+      });
+
+      results.push(delivery);
+    }
+
+    return ctx.json({ data: results });
   })
   .get('/history/:customerId', sessionMiddleware, zValidator('param', z.object({ customerId: z.string() })), async (ctx) => {
     const { customerId } = ctx.req.valid('param');
@@ -356,9 +441,8 @@ const app = new Hono()
       data: {
         balance: newBalance,
         bottleBalance: newBottleBalance,
-        nextDeliveryDate: customer.nextDeliveryDate
-          ? addDays(customer.nextDeliveryDate, 7)
-          : addDays(new Date(), 7),
+        // nextDeliveryDate is now handled by the scheduler (POST /schedule)
+        // to support multiple schedule types (Weekly, Bi-weekly, etc.)
       },
     });
 

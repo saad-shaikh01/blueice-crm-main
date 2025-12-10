@@ -94,8 +94,10 @@ import { cn } from '@/lib/utils';
 // import { useCurrentMember } from '@/features/members/api/use-current-member';
 import {
   GoHome, GoHomeFill, GoProjectTemplate, GoProjectRoadmap,
-  GoCheckCircle, GoCheckCircleFill, GoGear, GoPerson, GoPersonFill, GoDatabase, GoPackage, GoPaperAirplane
+  GoCheckCircle, GoCheckCircleFill, GoGear, GoPerson, GoPersonFill, GoDatabase, GoPackage, GoPaperAirplane,
+  GoFile
 } from 'react-icons/go';
+import { Truck } from 'lucide-react';
 
 const allowedRoutes = [
   {
@@ -140,6 +142,18 @@ const allowedRoutes = [
     href: '/deliveries',
     icon: GoPaperAirplane,
     activeIcon: GoPaperAirplane,
+  },
+  {
+    label: 'Invoices',
+    href: '/invoices',
+    icon: GoFile,
+    activeIcon: GoFile,
+  },
+  {
+    label: 'Driver View',
+    href: '/driver',
+    icon: Truck,
+    activeIcon: Truck,
   },
   {
     label: 'Users',

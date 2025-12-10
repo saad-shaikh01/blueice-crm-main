@@ -5,6 +5,7 @@ import auth from '@/features/auth/server/route';
 import customer from '@/features/customer/server/route';
 import product from '@/features/product/server/route';
 import delivery from '@/features/delivery/server/route';
+import invoice from '@/features/invoice/server/route';
 
 export const runtime = 'nodejs';
 
@@ -23,7 +24,8 @@ const routes = app
   .route('/auth', auth)
   .route('/customers', customer)
   .route('/products', product)
-  .route('/deliveries', delivery);
+  .route('/deliveries', delivery)
+  .route('/invoices', invoice);
 
 
 export type AppType = typeof routes;
