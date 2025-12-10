@@ -140,6 +140,28 @@ const app = new Hono()
       return ctx.json({ error: 'Failed to create delivery' }, 500);
     }
   })
+  .get(
+    '/:deliveryId',
+    sessionMiddleware,
+    zValidator('param', paramsSchema),
+    async (ctx) => {
+      const { deliveryId } = ctx.req.valid('param');
+
+      const delivery = await db.delivery.findUnique({
+        where: { id: deliveryId },
+        include: {
+          customer: true,
+          entries: true,
+        },
+      });
+
+      if (!delivery) {
+        return ctx.json({ error: 'Delivery not found' }, 404);
+      }
+
+      return ctx.json({ data: delivery });
+    }
+  )
   .patch(
     '/:deliveryId',
     sessionMiddleware,
