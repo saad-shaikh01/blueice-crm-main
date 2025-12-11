@@ -40,17 +40,19 @@ export const SignUpCard = () => {
     );
   };
   return (
-    <Card className="size-full border-none shadow-none md:w-[487px]">
+    <Card className="size-full border-border/50 shadow-lg md:w-[487px] bg-card/95 backdrop-blur-sm transition-all duration-300 hover:shadow-xl dark:shadow-primary/5">
       <CardHeader className="flex items-center justify-center p-7 text-center">
-        <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500">
+          Create an account
+        </CardTitle>
+        <CardDescription className="text-muted-foreground">
           By signing up, you agree to{' '}
-          <Link href="#">
-            <span className="text-blue-700">Privacy Policy</span>
+          <Link href="#" className="text-primary hover:text-primary/80 transition-colors underline-offset-4 hover:underline">
+            Privacy Policy
           </Link>{' '}
           and{' '}
-          <Link href="#">
-            <span className="text-blue-700">Terms of Service</span>
+          <Link href="#" className="text-primary hover:text-primary/80 transition-colors underline-offset-4 hover:underline">
+            Terms of Service
           </Link>
         </CardDescription>
       </CardHeader>
@@ -69,7 +71,7 @@ export const SignUpCard = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input {...field} type="text" placeholder="Full name" />
+                    <Input {...field} type="text" placeholder="Full name" className="bg-background/50 border-input focus:border-primary focus:ring-primary/20" />
                   </FormControl>
 
                   <FormMessage />
@@ -84,7 +86,7 @@ export const SignUpCard = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input {...field} type="email" placeholder="Email address" />
+                    <Input {...field} type="email" placeholder="Email address" className="bg-background/50 border-input focus:border-primary focus:ring-primary/20" />
                   </FormControl>
 
                   <FormMessage />
@@ -99,7 +101,7 @@ export const SignUpCard = () => {
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Input {...field} type="password" placeholder="Password" />
+                    <Input {...field} type="password" placeholder="Password" className="bg-background/50 border-input focus:border-primary focus:ring-primary/20" />
                   </FormControl>
 
                   <FormMessage />
@@ -107,7 +109,7 @@ export const SignUpCard = () => {
               )}
             />
 
-            <Button type="submit" disabled={isPending} size="lg" className="w-full">
+            <Button type="submit" disabled={isPending} size="lg" className="w-full bg-gradient-to-r from-primary to-cyan-600 hover:from-primary/90 hover:to-cyan-600/90 shadow-md">
               Register
             </Button>
           </form>
@@ -119,10 +121,10 @@ export const SignUpCard = () => {
       </div>
 
       <CardContent className="flex items-center justify-center p-7">
-        <p>
+        <p className="text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link href="/sign-in">
-            <span className="text-blue-700">Login</span>
+          <Link href="/sign-in" className="font-medium text-primary hover:text-primary/80 transition-colors">
+            Login
           </Link>
         </p>
       </CardContent>

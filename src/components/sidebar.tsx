@@ -4,16 +4,19 @@ import { Logo } from './logo';
 import { Navigation } from './navigation';
 
 export const Sidebar = () => {
-
   return (
-    <aside className="size-full bg-background text-foreground p-4">
+    <aside className="h-full bg-card/50 backdrop-blur-md border-r border-border p-4 flex flex-col gap-y-4">
       <Logo />
-      <DottedSeparator className="my-4" />
+      <DottedSeparator className="opacity-50" />
 
-      <Navigation />
+      <div className="flex-1 overflow-y-auto hide-scrollbar">
+        <Navigation />
+      </div>
 
-      <DottedSeparator className="my-4" />
-
+      <div className="mt-auto">
+         {/* Future footer items or user profile summary could go here */}
+         <DottedSeparator className="opacity-50 my-4" />
+      </div>
     </aside>
   );
 };
