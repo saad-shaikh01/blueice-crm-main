@@ -11,9 +11,11 @@ const font = Ubuntu({
 
 export const Logo = () => {
   return (
-    <Link href="/" className="flex items-center gap-x-1.5">
+    <Link href="/" className="flex items-center gap-x-2">
       <Image src="/apple-touch-icon.png" alt="Icon" height={40} width={40} />
-      <p className={cn('text-xl font-semibold text-[#111]', font.className)}>MADCOM DIGITAL</p>
+      <p className={cn('text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-cyan-500', font.className)}>
+        MADCOM DIGITAL
+      </p>
     </Link>
   );
 };
